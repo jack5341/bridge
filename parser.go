@@ -2,21 +2,17 @@ package main
 
 import (
 	"fmt"
+	"io/fs"
 	"io/ioutil"
 	"os"
 	"os/user"
 	"strings"
 )
 
-type keysAndIpAdresses struct {
-	keys       []string
-	ipAdresses []string
-}
+var SSHKeys []string
+var IpAdresses []string
 
-var sshKeys []string
-var ipAdresses []string
-
-func Parser() keysAndIpAdresses {
+func init() {
 	user, err := user.Lookup(os.ExpandEnv("$USER"))
 
 	if err != nil {
@@ -31,29 +27,35 @@ func Parser() keysAndIpAdresses {
 	}
 
 	for _, f := range files {
-		keys := strings.Split(f.Name(), ".pub")
+		GetSshKeys(f, path)
+		GetIpAdresses(f, path)
+	}
+}
 
-		if f.Name() == "known_hosts" {
-			b, err := os.ReadFile(path + "/known_hosts")
+func GetSshKeys(f fs.FileInfo, path string) []string {
+	keys := strings.Split(f.Name(), ".pub")
 
-			if err != nil {
-				panic(err)
-			}
+	if len(keys) > 1 {
+		SSHKeys = append(SSHKeys, keys...)
+	}
 
-			lines := strings.Split(string(b), "\n")
+	return SSHKeys
+}
 
-			for _, l := range lines {
-				ipAdresses = append(ipAdresses, strings.Split(l, " ")[0])
-			}
+func GetIpAdresses(f fs.FileInfo, path string) []string {
+	if f.Name() == "known_hosts" {
+		b, err := os.ReadFile(path + "/known_hosts")
+
+		if err != nil {
+			panic(err)
 		}
 
-		if len(keys) > 1 {
-			sshKeys = append(sshKeys, keys...)
+		lines := strings.Split(string(b), "\n")
+
+		for _, l := range lines {
+			IpAdresses = append(IpAdresses, strings.Split(l, " ")[0])
 		}
 	}
 
-	return keysAndIpAdresses{
-		keys:       sshKeys,
-		ipAdresses: ipAdresses,
-	}
+	return IpAdresses
 }
