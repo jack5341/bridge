@@ -2,60 +2,57 @@ package main
 
 import (
 	"fmt"
-	"io/fs"
-	"io/ioutil"
 	"os"
-	"os/user"
 	"strings"
 )
 
 var SSHKeys []string
-var IpAdresses []string
+var IpAddresses []string
 
 func init() {
-	user, err := user.Lookup(os.ExpandEnv("$USER"))
+	userHOME := os.ExpandEnv("$HOME")
 
-	if err != nil {
-		panic(err)
-	}
-
-	path := fmt.Sprintf("/Users/%s/.ssh", user.Username)
-	files, err := ioutil.ReadDir(path)
-
+	sshPath := fmt.Sprintf("%s/.ssh", userHOME)
+	files, err := os.ReadDir(sshPath)
 	if err != nil {
 		panic(err)
 	}
 
 	for _, f := range files {
-		GetSshKeys(f, path)
-		GetIpAdresses(f, path)
+		GetSshKeys(f.Name())
 	}
+
+	ipdAddrs, err := GetIpAddresses(sshPath)
+	if err != nil {
+		return
+	}
+
+	IpAddresses = ipdAddrs
 }
 
-func GetSshKeys(f fs.FileInfo, path string) []string {
-	keys := strings.Split(f.Name(), ".pub")
+func GetSshKeys(fileName string) []string {
+	keyName := strings.Split(fileName, ".pub")
 
-	if len(keys) > 1 {
-		SSHKeys = append(SSHKeys, keys...)
+	if len(keyName) > 1 {
+		SSHKeys = append(SSHKeys, keyName[0])
 	}
 
 	return SSHKeys
 }
 
-func GetIpAdresses(f fs.FileInfo, path string) []string {
-	if f.Name() == "known_hosts" {
-		b, err := os.ReadFile(path + "/known_hosts")
+func GetIpAddresses(sshPath string) ([]string, error) {
+	var ips []string
+	b, err := os.ReadFile(sshPath + "/known_hosts")
 
-		if err != nil {
-			panic(err)
-		}
-
-		lines := strings.Split(string(b), "\n")
-
-		for _, l := range lines {
-			IpAdresses = append(IpAdresses, strings.Split(l, " ")[0])
-		}
+	if err != nil {
+		return nil, err
 	}
 
-	return IpAdresses
+	lines := strings.Split(string(b), "\n")
+
+	for _, l := range lines {
+		ips = append(ips, strings.Split(l, " ")[0])
+	}
+
+	return ips, nil
 }
